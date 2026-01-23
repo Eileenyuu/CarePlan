@@ -1,0 +1,1 @@
+A Django-based web application that uses Google Gemini to generate comprehensive Specialty Pharmacy Care Plans for patients.

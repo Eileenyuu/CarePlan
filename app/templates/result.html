@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Care Plan Result</title>
+    <style>
+        body { font-family: Arial; max-width: 900px; margin: 50px auto; padding: 20px; }
+        .plan { background: #f5f5f5; padding: 20px; white-space: pre-wrap; }
+        button { padding: 10px 20px; margin: 10px 5px 0 0; background: #28a745; color: white; border: none; cursor: pointer; }
+        button:hover { background: #218838; }
+        .back { background: #6c757d; }
+        .back:hover { background: #5a6268; }
+    </style>
+</head>
+<body>
+    <h1>Generated Care Plan</h1>
+    <p><strong>Patient:</strong> {{ care_plan.patient_first_name }} {{ care_plan.patient_last_name }}</p>
+    <p><strong>MRN:</strong> {{ care_plan.patient_mrn }}</p>
+    <p><strong>Medication:</strong> {{ care_plan.medication_name }}</p>
+    
+    <div class="plan">{{ care_plan.generated_plan }}</div>
+    
+    <a href="/download/{{ care_plan.id }}/"><button>Download as .txt</button></a>
+    <a href="/"><button class="back">Create Another</button></a>
+</body>
+</html>

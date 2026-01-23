@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Care Plan Generator</title>
+    <style>
+        body { font-family: Arial; max-width: 800px; margin: 50px auto; padding: 20px; }
+        input, textarea { width: 100%; padding: 8px; margin: 5px 0 15px; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        label { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Specialty Pharmacy Care Plan Generator</h1>
+
+    <!-- ========== 新增：显示错误 ========== -->
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+    
+    <!-- ========== 新增：额度提示 ========== -->
+    <div class="quota-info">
+        ℹ️ Free tier limits: 15 requests/minute, 1500 requests/day
+    </div>
+    
+    <form method="post">
+        <label>Patient First Name *</label>
+        <input type="text" name="patient_first_name" required>
+        
+        <label>Patient Last Name *</label>
+        <input type="text" name="patient_last_name" required>
+        
+        <label>Patient DOB *</label>
+        <input type="date" name="patient_dob" required>
+        
+        <label>Patient MRN (6 digits) *</label>
+        <input type="text" name="patient_mrn" required>
+        
+        <label>Referring Provider *</label>
+        <input type="text" name="referring_provider" required>
+        
+        <label>Referring Provider NPI (10 digits) *</label>
+        <input type="text" name="referring_provider_npi" required>
+        
+        <label>Medication Name *</label>
+        <input type="text" name="medication_name" required>
+        
+        <label>Patient Primary Diagnosis (ICD-10) *</label>
+        <input type="text" name="patient_primary_diagnosis" required>
+        
+        <label>Additional Diagnosis (comma separated)</label>
+        <textarea name="additional_diagnosis" rows="2"></textarea>
+        
+        <label>Medication History (comma separated)</label>
+        <textarea name="medication_history" rows="3"></textarea>
+        
+        <label>Clinical Notes</label>
+        <textarea name="clinical_notes" rows="5"></textarea>
+        
+        <button type="submit">Generate Care Plan</button>
+    </form>
+    
+    <hr style="margin: 40px 0;">
+    <a href="/export/"><button type="button">Export All Records to CSV</button></a>
+</body>
+</html>

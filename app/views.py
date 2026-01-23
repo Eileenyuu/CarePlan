@@ -1,0 +1,122 @@
+import os
+import csv
+from datetime import datetime, timedelta
+from django.shortcuts import render, get_object_or_404
+from django.http import HttpResponse, JsonResponse
+from django.core.cache import cache  # ← 新增：用缓存做限流
+import google.generativeai as genai
+from .models import CarePlan
+from .services import get_gemini_response
+
+
+    # ========== 限流函数 ==========
+def check_rate_limit():
+    """
+    免费版限制：
+    - 每分钟 15 次请求（设保守一点）
+    - 每天 1500 次请求
+    """
+    now = datetime.now()
+    
+    # 检查每分钟限制
+    minute_key = f"gemini_calls_{now.strftime('%Y%m%d%H%M')}"
+    minute_count = cache.get(minute_key, 0)
+    
+    if minute_count >= 15:  # ← 保守设置，免费版是 60/分钟
+        return False, "Too many requests per minute. Please wait."
+    
+    # 检查每天限制
+    day_key = f"gemini_calls_{now.strftime('%Y%m%d')}"
+    day_count = cache.get(day_key, 0)
+    
+    if day_count >= 1500:  # ← 免费版每天 1500 次
+        return False, "Daily quota exceeded. Please try tomorrow."
+    
+    # 更新计数
+    cache.set(minute_key, minute_count + 1, timeout=60)  # 1分钟过期
+    cache.set(day_key, day_count + 1, timeout=86400)  # 1天过期
+    
+    return True, None
+
+def index(request):
+    if request.method == 'POST':
+
+        # ========== 检查限流 ==========
+        allowed, error_msg = check_rate_limit()
+        if not allowed:
+            return render(request, 'form.html', {'error': error_msg})
+
+        cp = CarePlan.objects.create(
+            patient_first_name=request.POST['patient_first_name'],
+            patient_last_name=request.POST['patient_last_name'],
+            patient_dob=request.POST['patient_dob'],
+            patient_mrn=request.POST['patient_mrn'],
+            referring_provider=request.POST['referring_provider'],
+            referring_provider_npi=request.POST['referring_provider_npi'],
+            medication_name=request.POST['medication_name'],
+            patient_primary_diagnosis=request.POST['patient_primary_diagnosis'],
+            additional_diagnosis=request.POST.get('additional_diagnosis', ''),
+            medication_history=request.POST.get('medication_history', ''),
+            clinical_notes=request.POST.get('clinical_notes', ''),
+        )
+        
+        # 构建 prompt
+        prompt = f'''Generate a comprehensive Specialty Pharmacy Care Plan for:
+
+Patient: {cp.patient_first_name} {cp.patient_last_name}
+DOB: {cp.patient_dob}
+MRN: {cp.patient_mrn}
+Medication: {cp.medication_name}
+Primary Diagnosis (ICD-10): {cp.patient_primary_diagnosis}
+Additional Diagnoses: {cp.additional_diagnosis}
+Medication History: {cp.medication_history}
+Clinical Notes: {cp.clinical_notes}
+
+Please include:
+1. Problem List / Drug Therapy Problems (DTPs)
+2. SMART Goals
+3. Pharmacist Interventions/Plan
+4. Monitoring Plan & Lab Schedule
+'''
+        
+        
+        try:
+            cp.generated_plan = get_gemini_response(prompt)
+            cp.save()
+            return render(request, 'result.html', {'care_plan': cp})
+            
+        except Exception as e:
+            # ========== 捕获 API 错误 ==========
+            error_msg = str(e)
+            if "quota" in error_msg.lower():
+                error_msg = "API quota exceeded. Please try again later."
+            return render(request, 'form.html', {'error': error_msg})
+    
+    return render(request, 'form.html')
+
+def download_txt(request, pk):
+    cp = get_object_or_404(CarePlan, pk=pk)
+    response = HttpResponse(cp.generated_plan, content_type='text/plain')
+    response['Content-Disposition'] = f'attachment; filename="careplan_{cp.patient_mrn}.txt"'
+    return response
+
+def export_csv(request):
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="careplans.csv"'
+    
+    writer = csv.writer(response)
+    writer.writerow([
+        'Patient First Name', 'Patient Last Name', 'DOB', 'MRN',
+        'Provider', 'Provider NPI', 'Medication', 'Primary Diagnosis',
+        'Additional Diagnosis', 'Medication History', 'Created At'
+    ])
+    
+    for cp in CarePlan.objects.all():
+        writer.writerow([
+            cp.patient_first_name, cp.patient_last_name, cp.patient_dob, cp.patient_mrn,
+            cp.referring_provider, cp.referring_provider_npi, cp.medication_name,
+            cp.patient_primary_diagnosis, cp.additional_diagnosis, cp.medication_history,
+            cp.created_at
+        ])
+    
+    return response

@@ -57,8 +57,16 @@
         <label>Clinical Notes</label>
         <textarea name="clinical_notes" rows="5"></textarea>
         
+        
         <button type="submit">Generate Care Plan</button>
+        <div id="loadingMsg" style="display:none; color:#007bff; margin-top:10px;">⏳ Generating... This may take 10-30 seconds</div>
     </form>
+    
+    <script>
+        document.querySelector('form').addEventListener('submit', function() {
+            document.getElementById('loadingMsg').style.display = 'block';
+        });
+    </script>
     
     <hr style="margin: 40px 0;">
     <a href="/export/"><button type="button">Export All Records to CSV</button></a>

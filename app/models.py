@@ -13,5 +13,6 @@ class CarePlan(models.Model):
     medication_history = models.TextField(blank=True)
     clinical_notes = models.TextField(blank=True)
     
+    status = models.CharField(max_length=20, default='pending')  # pending/processing/completed/failed
     generated_plan = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

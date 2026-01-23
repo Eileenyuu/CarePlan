@@ -1,0 +1,64 @@
+========== 测试用例 1: 糖尿病患者 ==========
+Patient First Name: John
+Patient Last Name: Smith
+DOB: 1985-03-15
+MRN: 123456
+Referring Provider: Dr. Sarah Johnson
+Referring Provider NPI: 1234567890
+Medication Name: Ozempic
+Primary Diagnosis (ICD-10): E11.9
+Additional Diagnosis: Hypertension, Obesity
+Medication History: Metformin 1000mg BID for 2 years
+Clinical Notes: Patient struggling with A1C control, recently started Ozempic
+
+========== 测试用例 2: 类风湿关节炎 ==========
+Patient First Name: Maria
+Patient Last Name: Garcia
+DOB: 1978-07-22
+MRN: 234567
+Referring Provider: Dr. Michael Chen
+Referring Provider NPI: 2345678901
+Medication Name: Humira
+Primary Diagnosis (ICD-10): M05.79
+Additional Diagnosis: None
+Medication History: Tried NSAIDs and prednisone
+Clinical Notes: Moderate disease activity, joint pain in hands and feet
+
+========== 测试用例 3: 多发性硬化症 ==========
+Patient First Name: David
+Patient Last Name: Lee
+DOB: 1990-11-08
+MRN: 345678
+Referring Provider: Dr. Emily White
+Referring Provider NPI: 3456789012
+Medication Name: Copaxone
+Primary Diagnosis (ICD-10): G35
+Additional Diagnosis: Depression
+Medication History: No prior MS medications
+Clinical Notes: Newly diagnosed, relapsing-remitting MS
+
+========== 测试用例 4: 哮喘 ==========
+Patient First Name: Lisa
+Patient Last Name: Brown
+DOB: 1995-05-30
+MRN: 004567
+Referring Provider: Dr. James Wilson
+Referring Provider NPI: 4567890123
+Medication Name: Dupixent
+Primary Diagnosis (ICD-10): J45.50
+Additional Diagnosis: Allergic rhinitis
+Medication History: Albuterol PRN, Flovent 110mcg BID
+Clinical Notes: Severe persistent asthma, frequent exacerbations
+
+========== 测试用例 5: 银屑病 ==========
+Patient First Name: Robert
+Patient Last Name: Taylor
+DOB: 1982-12-18
+MRN: 567890
+Referring Provider: Dr. Anna Martinez
+Referring Provider NPI: 5678901234
+Medication Name: Stelara
+Primary Diagnosis (ICD-10): L40.0
+Additional Diagnosis: None
+Medication History: Topical steroids with limited response
+Clinical Notes: Moderate to severe plaque psoriasis, 15% BSA involvement

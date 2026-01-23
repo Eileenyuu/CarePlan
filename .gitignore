@@ -17,3 +17,11 @@ ENV/
 
 # Logs
 *.log
+
+# IDE
+.idea/
+.vscode/
+
+# Temporary files
+*.swp
+*.swo

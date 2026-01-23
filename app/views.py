@@ -72,7 +72,7 @@ Additional Diagnoses: {cp.additional_diagnosis}
 Medication History: {cp.medication_history}
 Clinical Notes: {cp.clinical_notes}
 
-Please include:
+Please include (simply and concisely):
 1. Problem List / Drug Therapy Problems (DTPs)
 2. SMART Goals
 3. Pharmacist Interventions/Plan
@@ -81,12 +81,18 @@ Please include:
         
         
         try:
+            cp.status = 'processing'
+            cp.save()
+            
             cp.generated_plan = get_gemini_response(prompt)
+            cp.status = 'completed'
             cp.save()
             return render(request, 'result.html', {'care_plan': cp})
             
         except Exception as e:
             # ========== 捕获 API 错误 ==========
+            cp.status = 'failed'
+            cp.save()
             error_msg = str(e)
             if "quota" in error_msg.lower():
                 error_msg = "API quota exceeded. Please try again later."

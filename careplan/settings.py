@@ -42,13 +42,18 @@ DATABASES = {
     }
 }
 
-# ========== 缓存配置（用于限流） ==========
+# ========== 缓存配置（用于限流 + Redis 队列） ==========
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'unique-snowflake',
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': f"redis://{os.getenv('REDIS_HOST', 'redis')}:{os.getenv('REDIS_PORT', '6379')}/0",
     }
 }
+
+# ========== Redis 配置（用于队列） ==========
+REDIS_HOST = os.getenv('REDIS_HOST', 'redis')
+REDIS_PORT = int(os.getenv('REDIS_PORT', '6379'))
+REDIS_DB = 0  # 使用数据库 0
 
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'

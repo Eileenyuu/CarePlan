@@ -7,6 +7,7 @@ from django.core.cache import cache  # ← 新增：用缓存做限流
 import google.generativeai as genai
 from .models import CarePlan
 from .services import get_gemini_response
+from .queue_utils import enqueue_careplan  # ← 新增：导入队列工具
 
 
     # ========== 限流函数 ==========
@@ -46,6 +47,7 @@ def index(request):
         if not allowed:
             return render(request, 'form.html', {'error': error_msg})
 
+        # ========== 步骤 1: 保存到数据库（status='pending'） ==========
         cp = CarePlan.objects.create(
             patient_first_name=request.POST['patient_first_name'],
             patient_last_name=request.POST['patient_last_name'],
@@ -58,45 +60,25 @@ def index(request):
             additional_diagnosis=request.POST.get('additional_diagnosis', ''),
             medication_history=request.POST.get('medication_history', ''),
             clinical_notes=request.POST.get('clinical_notes', ''),
+            # status 默认就是 'pending'，不需要显式设置
         )
         
-        # 构建 prompt
-        prompt = f'''Generate a comprehensive Specialty Pharmacy Care Plan for:
-
-Patient: {cp.patient_first_name} {cp.patient_last_name}
-DOB: {cp.patient_dob}
-MRN: {cp.patient_mrn}
-Medication: {cp.medication_name}
-Primary Diagnosis (ICD-10): {cp.patient_primary_diagnosis}
-Additional Diagnoses: {cp.additional_diagnosis}
-Medication History: {cp.medication_history}
-Clinical Notes: {cp.clinical_notes}
-
-Please include (simply and concisely):
-1. Problem List / Drug Therapy Problems (DTPs)
-2. SMART Goals
-3. Pharmacist Interventions/Plan
-4. Monitoring Plan & Lab Schedule
-'''
+        # ========== 步骤 2: 放入 Redis 队列 ==========
+        success = enqueue_careplan(cp.id)
         
+        if not success:
+            # 如果队列失败，返回错误
+            return JsonResponse({
+                'error': '无法将任务加入队列，请稍后重试',
+                'careplan_id': cp.id
+            }, status=500)
         
-        try:
-            cp.status = 'processing'
-            cp.save()
-            
-            cp.generated_plan = get_gemini_response(prompt)
-            cp.status = 'completed'
-            cp.save()
-            return render(request, 'result.html', {'care_plan': cp})
-            
-        except Exception as e:
-            # ========== 捕获 API 错误 ==========
-            cp.status = 'failed'
-            cp.save()
-            error_msg = str(e)
-            if "quota" in error_msg.lower():
-                error_msg = "API quota exceeded. Please try again later."
-            return render(request, 'form.html', {'error': error_msg})
+        # ========== 步骤 3: 立即返回响应 ==========
+        return JsonResponse({
+            'message': '已收到您的请求，正在处理中',
+            'careplan_id': cp.id,
+            'status': 'pending'
+        })
     
     return render(request, 'form.html')
 
@@ -126,3 +108,29 @@ def export_csv(request):
         ])
     
     return response
+
+def stats(request):
+    """显示数据库统计信息"""
+    from .queue_utils import get_queue_length
+    
+    total = CarePlan.objects.count()
+    pending = CarePlan.objects.filter(status='pending').count()
+    processing = CarePlan.objects.filter(status='processing').count()
+    completed = CarePlan.objects.filter(status='completed').count()
+    failed = CarePlan.objects.filter(status='failed').count()
+    queue_length = get_queue_length()
+    
+    # 获取最近的 10 条记录
+    recent_plans = CarePlan.objects.all().order_by('-created_at')[:10]
+    
+    context = {
+        'total': total,
+        'pending': pending,
+        'processing': processing,
+        'completed': completed,
+        'failed': failed,
+        'queue_length': queue_length,
+        'recent_plans': recent_plans,
+    }
+    
+    return render(request, 'stats.html', context)

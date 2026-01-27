@@ -28,8 +28,9 @@ def enqueue_careplan(careplan_id):
     """
     try:
         r = get_redis_connection()
-        # 使用 LPUSH 将任务 ID 放入队列左侧（生产者）
-        r.lpush(QUEUE_NAME, careplan_id)
+        # 使用 RPUSH 将任务 ID 放入队列右侧（生产者）
+        # 配合 worker.py 的 BLPOP（从左侧弹出），实现先进先出（FIFO）
+        r.rpush(QUEUE_NAME, careplan_id)
         return True
     except Exception as e:
         print(f"Error enqueuing careplan {careplan_id}: {e}")
@@ -39,16 +40,19 @@ def dequeue_careplan():
     """
     从 Redis 队列中取出一个 CarePlan ID（阻塞式）
     
-    这个函数暂时不用，留给后续的 worker 进程使用
+    队列顺序说明：
+    - 使用 RPUSH（右侧推入）+ BLPOP（左侧弹出）实现 FIFO（先进先出）
+    - 先提交的任务会先被处理
     
     返回:
         careplan_id 或 None
     """
     try:
         r = get_redis_connection()
-        # 使用 BRPOP 从队列右侧取出任务（消费者）
+        # 使用 BLPOP 从队列左侧取出任务（消费者）
+        # 配合 enqueue_careplan 的 RPUSH，实现 FIFO 先进先出
         # timeout=0 表示永久阻塞，直到有任务
-        result = r.brpop(QUEUE_NAME, timeout=0)
+        result = r.blpop(QUEUE_NAME, timeout=0)
         if result:
             queue_name, careplan_id = result
             return careplan_id

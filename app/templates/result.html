@@ -16,10 +16,17 @@
     <p><strong>Patient:</strong> {{ care_plan.patient_first_name }} {{ care_plan.patient_last_name }}</p>
     <p><strong>MRN:</strong> {{ care_plan.patient_mrn }}</p>
     <p><strong>Medication:</strong> {{ care_plan.medication_name }}</p>
+    <p><strong>Status:</strong> {{ care_plan.status }}</p>
     
-    <div class="plan">{{ care_plan.generated_plan }}</div>
+    {% if care_plan.status == 'completed' and care_plan.generated_plan %}
+        <div class="plan">{{ care_plan.generated_plan }}</div>
+        <a href="/download/{{ care_plan.id }}/"><button>Download as .txt</button></a>
+    {% elif care_plan.status == 'failed' %}
+        <p style="color: red;">Generation failed. Please try again.</p>
+    {% else %}
+        <p>Processing... Please refresh the page to see the result.</p>
+    {% endif %}
     
-    <a href="/download/{{ care_plan.id }}/"><button>Download as .txt</button></a>
     <a href="/"><button class="back">Create Another</button></a>
 </body>
 </html>

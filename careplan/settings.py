@@ -62,3 +62,22 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ========== Celery 配置 ==========
+# Broker: 消息代理，用于传递任务消息（我们用 Redis）
+CELERY_BROKER_URL = f"redis://{os.getenv('REDIS_HOST', 'redis')}:{os.getenv('REDIS_PORT', '6379')}/1"
+
+# Result Backend: 存储任务结果（也用 Redis，但用不同的数据库）
+CELERY_RESULT_BACKEND = f"redis://{os.getenv('REDIS_HOST', 'redis')}:{os.getenv('REDIS_PORT', '6379')}/2"
+
+# 任务序列化格式
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_ACCEPT_CONTENT = ['json']
+
+# 时区设置（和 Django 保持一致）
+CELERY_TIMEZONE = TIME_ZONE
+
+# 任务结果过期时间（1小时）
+CELERY_RESULT_EXPIRES = 3600
+

@@ -9,7 +9,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "15432:5432"  # 使用 15432 避免与本地 PostgreSQL 冲突
   
   web:
     build: .
@@ -37,6 +37,30 @@ services:
     volumes:
       - redis_data:/data
 
+  # ========== Celery Worker 服务 ==========
+  celery:
+    build: .
+    # 启动 Celery Worker
+    # -A careplan: 指定 Celery 应用位置
+    # -l INFO: 日志级别
+    # --concurrency=2: 并发 worker 数量
+    command: celery -A careplan worker -l INFO --concurrency=2
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - POSTGRES_DB=careplan
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+      - redis
+
 volumes:
   postgres_data:
   redis_data:
+

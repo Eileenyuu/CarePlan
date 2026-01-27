@@ -28,3 +28,6 @@ ENV/
 
 # Test files
 test_file/
+
+# worker
+worker.py

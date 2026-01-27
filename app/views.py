@@ -1,13 +1,12 @@
-import os
 import csv
-from datetime import datetime, timedelta
-from django.shortcuts import render, get_object_or_404
+from datetime import datetime
+from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, JsonResponse
-from django.core.cache import cache  # ← 新增：用缓存做限流
-import google.generativeai as genai
+from django.core.cache import cache  # ← 用缓存做限流
 from .models import CarePlan
-from .services import get_gemini_response
-from .queue_utils import enqueue_careplan  # ← 新增：导入队列工具
+# ↓ 导入 Celery 任务
+# Celery 底层使用 Redis 作为消息队列（Broker）
+from .tasks import generate_care_plan_task
 
 
     # ========== 限流函数 ==========
@@ -63,24 +62,21 @@ def index(request):
             # status 默认就是 'pending'，不需要显式设置
         )
         
-        # ========== 步骤 2: 放入 Redis 队列 ==========
-        success = enqueue_careplan(cp.id)
+        # ========== 步骤 2: 调用 Celery 异步任务 ==========
+        # .delay() 会立即返回，任务在后台执行
+        # Celery Worker 会自动从 Redis 队列拉取任务并处理
+        generate_care_plan_task.delay(cp.id)
         
-        if not success:
-            # 如果队列失败，返回错误
-            return JsonResponse({
-                'error': '无法将任务加入队列，请稍后重试',
-                'careplan_id': cp.id
-            }, status=500)
-        
-        # ========== 步骤 3: 立即返回响应 ==========
-        return JsonResponse({
-            'message': '已收到您的请求，正在处理中',
-            'careplan_id': cp.id,
-            'status': 'pending'
-        })
+        # ========== 步骤 3: 重定向到结果页面 ==========
+        return redirect('result', pk=cp.id)
     
     return render(request, 'form.html')
+
+
+def result(request, pk):
+    """显示 CarePlan 结果页面"""
+    care_plan = get_object_or_404(CarePlan, pk=pk)
+    return render(request, 'result.html', {'care_plan': care_plan})
 
 def download_txt(request, pk):
     cp = get_object_or_404(CarePlan, pk=pk)

@@ -9,6 +9,39 @@
         button:hover { background: #218838; }
         .back { background: #6c757d; }
         .back:hover { background: #5a6268; }
+        
+        /* ========== 加载动画样式 ========== */
+        .loading {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 20px;
+            background: #e3f2fd;
+            border-radius: 8px;
+        }
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid #90caf9;
+            border-top-color: #1976d2;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* ========== 状态徽章样式 ========== */
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-weight: bold;
+        }
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-processing { background: #cce5ff; color: #004085; }
+        .status-completed { background: #d4edda; color: #155724; }
+        .status-failed { background: #f8d7da; color: #721c24; }
     </style>
 </head>
 <body>
@@ -16,17 +49,139 @@
     <p><strong>Patient:</strong> {{ care_plan.patient_first_name }} {{ care_plan.patient_last_name }}</p>
     <p><strong>MRN:</strong> {{ care_plan.patient_mrn }}</p>
     <p><strong>Medication:</strong> {{ care_plan.medication_name }}</p>
-    <p><strong>Status:</strong> {{ care_plan.status }}</p>
     
-    {% if care_plan.status == 'completed' and care_plan.generated_plan %}
-        <div class="plan">{{ care_plan.generated_plan }}</div>
-        <a href="/download/{{ care_plan.id }}/"><button>Download as .txt</button></a>
-    {% elif care_plan.status == 'failed' %}
-        <p style="color: red;">Generation failed. Please try again.</p>
-    {% else %}
-        <p>Processing... Please refresh the page to see the result.</p>
-    {% endif %}
+    <!-- ========== 状态显示区域 ========== -->
+    <p>
+        <strong>Status:</strong> 
+        <span id="status-badge" class="status-badge status-{{ care_plan.status }}">
+            {{ care_plan.status }}
+        </span>
+    </p>
+    
+    <!-- ========== 内容显示区域 ========== -->
+    <div id="content-area">
+        {% if care_plan.status == 'completed' and care_plan.generated_plan %}
+            <div class="plan" id="plan-content">{{ care_plan.generated_plan }}</div>
+            <a href="/download/{{ care_plan.id }}/" id="download-btn"><button>Download as .txt</button></a>
+        {% elif care_plan.status == 'failed' %}
+            <p style="color: red;" id="error-msg">Generation failed. Please try again.</p>
+        {% else %}
+            <!-- ========== 处理中：显示加载动画 ========== -->
+            <div class="loading" id="loading-indicator">
+                <div class="spinner"></div>
+                <span>Processing your care plan... This may take 10-30 seconds.</span>
+            </div>
+        {% endif %}
+    </div>
     
     <a href="/"><button class="back">Create Another</button></a>
+
+    <!-- ========== Polling JavaScript 代码 ========== -->
+    <!-- 使用 data 属性传递 Django 变量 -->
+    <script id="polling-config" 
+            data-careplan-id="{{ care_plan.id }}" 
+            data-careplan-status="{{ care_plan.status }}">
+    </script>
+    <script>
+    (function() {
+        // ======================================
+        // Polling 轮询实现
+        // ======================================
+        // 
+        // 工作原理：
+        // 1. 每隔 3 秒向服务器发送请求，查询任务状态
+        // 2. 如果状态是 completed 或 failed，停止轮询
+        // 3. 更新页面内容
+        
+        // -------- 1. 获取配置数据 --------
+        const config = document.getElementById('polling-config').dataset;
+        const currentStatus = config.careplanStatus;
+        const careplanId = config.careplanId;
+        
+        // -------- 2. 检查是否需要轮询 --------
+        // 只有 pending 或 processing 状态才需要轮询
+        if (currentStatus === 'completed' || currentStatus === 'failed') {
+            console.log('📋 任务已结束，无需轮询');
+            return;
+        }
+        
+        console.log('🔄 开始轮询，CarePlan ID:', careplanId);
+        
+        // -------- 3. 轮询间隔（毫秒）--------
+        const POLL_INTERVAL = 3000;  // 3 秒
+        
+        // -------- 4. 轮询函数 --------
+        function pollStatus() {
+            console.log('📡 发送状态查询请求...');
+            
+            fetch(`/api/careplan/${careplanId}/status/`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('📬 收到响应:', data);
+                    
+                    // 更新状态徽章
+                    updateStatusBadge(data.status);
+                    
+                    // 根据状态处理
+                    if (data.status === 'completed') {
+                        // ✅ 任务完成，显示结果
+                        showCompletedContent(data.generated_plan);
+                        console.log('✅ 任务完成，停止轮询');
+                    } else if (data.status === 'failed') {
+                        // ❌ 任务失败，显示错误
+                        showFailedContent();
+                        console.log('❌ 任务失败，停止轮询');
+                    } else {
+                        // ⏳ 继续轮询
+                        console.log('⏳ 任务处理中，3秒后继续轮询...');
+                        setTimeout(pollStatus, POLL_INTERVAL);
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ 轮询请求失败:', error);
+                    // 发生错误时，仍然继续轮询
+                    setTimeout(pollStatus, POLL_INTERVAL);
+                });
+        }
+        
+        // -------- 5. 辅助函数：更新状态徽章 --------
+        function updateStatusBadge(status) {
+            const badge = document.getElementById('status-badge');
+            badge.textContent = status;
+            badge.className = 'status-badge status-' + status;
+        }
+        
+        // -------- 6. 辅助函数：显示完成内容 --------
+        function showCompletedContent(generatedPlan) {
+            const contentArea = document.getElementById('content-area');
+            contentArea.innerHTML = `
+                <div class="plan" id="plan-content">${escapeHtml(generatedPlan)}</div>
+                <a href="/download/${careplanId}/" id="download-btn">
+                    <button>Download as .txt</button>
+                </a>
+            `;
+        }
+        
+        // -------- 7. 辅助函数：显示失败内容 --------
+        function showFailedContent() {
+            const contentArea = document.getElementById('content-area');
+            contentArea.innerHTML = `
+                <p style="color: red;">Generation failed. Please try again.</p>
+            `;
+        }
+        
+        // -------- 8. 辅助函数：HTML 转义（防 XSS 攻击）--------
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // -------- 9. 开始轮询 --------
+        pollStatus();
+        
+    })();
+    </script>
 </body>
 </html>

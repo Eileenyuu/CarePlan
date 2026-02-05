@@ -7,4 +7,6 @@ urlpatterns = [
     path('stats/', views.stats, name='stats'),
     path('download/<int:pk>/', views.download_txt, name='download'),
     path('export/', views.export_csv, name='export'),
+    # API 端点：查询 CarePlan 状态（用于前端轮询）
+    path('api/careplan/<int:pk>/status/', views.careplan_status, name='careplan_status'),
 ]

@@ -9,6 +9,24 @@
         button:hover { background: #218838; }
         .back { background: #6c757d; }
         .back:hover { background: #5a6268; }
+        
+        /* Loading spinner styles */
+        .loading-container { text-align: center; padding: 40px; }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .status-text { color: #666; font-size: 14px; }
+        .error-message { color: red; padding: 20px; background: #ffe6e6; border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -16,17 +34,96 @@
     <p><strong>Patient:</strong> {{ care_plan.patient_first_name }} {{ care_plan.patient_last_name }}</p>
     <p><strong>MRN:</strong> {{ care_plan.patient_mrn }}</p>
     <p><strong>Medication:</strong> {{ care_plan.medication_name }}</p>
-    <p><strong>Status:</strong> {{ care_plan.status }}</p>
+    <p><strong>Status:</strong> <span id="status-display">{{ care_plan.status }}</span></p>
     
-    {% if care_plan.status == 'completed' and care_plan.generated_plan %}
-        <div class="plan">{{ care_plan.generated_plan }}</div>
-        <a href="/download/{{ care_plan.id }}/"><button>Download as .txt</button></a>
-    {% elif care_plan.status == 'failed' %}
-        <p style="color: red;">Generation failed. Please try again.</p>
-    {% else %}
-        <p>Processing... Please refresh the page to see the result.</p>
-    {% endif %}
+    <!-- Result container - will be updated by JavaScript -->
+    <div id="result-container">
+        {% if care_plan.status == 'completed' and care_plan.generated_plan %}
+            <div class="plan">{{ care_plan.generated_plan }}</div>
+            <a href="/download/{{ care_plan.id }}/"><button>Download as .txt</button></a>
+        {% elif care_plan.status == 'failed' %}
+            <div class="error-message">Generation failed. Please try again.</div>
+        {% else %}
+            <!-- Pending or Processing state - show loading -->
+            <div class="loading-container">
+                <div class="spinner"></div>
+                <p class="status-text">Processing your request... Please wait.</p>
+                <p class="status-text" id="poll-status">Checking status every 3 seconds...</p>
+            </div>
+        {% endif %}
+    </div>
     
     <a href="/"><button class="back">Create Another</button></a>
+
+    <script>
+        // Get the CarePlan ID and initial status from Django template
+        const carePlanId = {{ care_plan.id }};
+        const initialStatus = "{{ care_plan.status }}";
+        
+        // Only start polling if status is pending or processing
+        if (initialStatus === 'pending' || initialStatus === 'processing') {
+            startPolling();
+        }
+        
+        function startPolling() {
+            console.log('Starting polling for CarePlan ID:', carePlanId);
+            
+            // Poll every 3 seconds
+            const pollInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/api/careplan/${carePlanId}/status/`);
+                    const data = await response.json();
+                    
+                    console.log('Poll response:', data);
+                    
+                    // Update status display
+                    document.getElementById('status-display').textContent = data.status;
+                    
+                    if (data.status === 'completed') {
+                        // Stop polling
+                        clearInterval(pollInterval);
+                        console.log('Status is completed, stopping polling');
+                        
+                        // Show the result
+                        showResult(data.content);
+                    } else if (data.status === 'failed') {
+                        // Stop polling
+                        clearInterval(pollInterval);
+                        console.log('Status is failed, stopping polling');
+                        
+                        // Show error
+                        showError();
+                    }
+                    // If pending or processing, continue polling
+                    
+                } catch (error) {
+                    console.error('Polling error:', error);
+                    // Continue polling even on error
+                }
+            }, 3000); // 3 seconds
+        }
+        
+        function showResult(content) {
+            const container = document.getElementById('result-container');
+            container.innerHTML = `
+                <div class="plan">${escapeHtml(content)}</div>
+                <a href="/download/${carePlanId}/"><button>Download as .txt</button></a>
+            `;
+        }
+        
+        function showError() {
+            const container = document.getElementById('result-container');
+            container.innerHTML = `
+                <div class="error-message">Generation failed. Please try again.</div>
+            `;
+        }
+        
+        // Helper function to escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
 </body>
 </html>

@@ -24,6 +24,7 @@ services:
       - POSTGRES_PORT=5432
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - USE_MOCK_LLM=true  # 开发环境使用 Mock LLM（改为 false 使用真实 API）
     volumes:
       - .:/app
     depends_on:
@@ -54,6 +55,7 @@ services:
       - POSTGRES_PORT=5432
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - USE_MOCK_LLM=true  # 开发环境使用 Mock LLM（改为 false 使用真实 API）
     volumes:
       - .:/app
     depends_on:

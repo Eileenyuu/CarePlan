@@ -7,4 +7,5 @@ urlpatterns = [
     path('stats/', views.stats, name='stats'),
     path('download/<int:pk>/', views.download_txt, name='download'),
     path('export/', views.export_csv, name='export'),
+    path('api/careplan/<int:pk>/status/', views.get_careplan_status, name='careplan_status'),
 ]

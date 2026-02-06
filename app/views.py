@@ -130,3 +130,16 @@ def stats(request):
     }
     
     return render(request, 'stats.html', context)
+
+
+def get_careplan_status(request, pk):
+    """
+    API endpoint for polling CarePlan status.
+    Returns JSON with status and content (if completed).
+    """
+    care_plan = get_object_or_404(CarePlan, pk=pk)
+    data = {
+        'status': care_plan.status,
+        'content': care_plan.generated_plan if care_plan.status == 'completed' else None
+    }
+    return JsonResponse(data)

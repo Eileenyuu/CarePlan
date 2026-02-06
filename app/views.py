@@ -107,14 +107,27 @@ def export_csv(request):
 
 def stats(request):
     """显示数据库统计信息"""
-    from .queue_utils import get_queue_length
+    from careplan.celery import app
     
     total = CarePlan.objects.count()
     pending = CarePlan.objects.filter(status='pending').count()
     processing = CarePlan.objects.filter(status='processing').count()
     completed = CarePlan.objects.filter(status='completed').count()
     failed = CarePlan.objects.filter(status='failed').count()
-    queue_length = get_queue_length()
+    
+    # 使用 Celery inspect API 获取队列信息
+    try:
+        inspect = app.control.inspect()
+        # reserved: 已从队列取出但尚未执行的任务
+        # active: 正在执行的任务
+        reserved = inspect.reserved() or {}
+        active = inspect.active() or {}
+        
+        # 计算总的待处理任务数
+        queue_length = sum(len(tasks) for tasks in reserved.values())
+        queue_length += sum(len(tasks) for tasks in active.values())
+    except Exception:
+        queue_length = 0  # 如果 Celery 未运行，返回 0
     
     # 获取最近的 10 条记录
     recent_plans = CarePlan.objects.all().order_by('-created_at')[:10]

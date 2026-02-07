@@ -1,21 +1,141 @@
 """
 ======================================
-LLM 服务层
+业务逻辑层（Service Layer）
 ======================================
 
-这个文件封装了所有 LLM 调用逻辑。
-通过环境变量 USE_MOCK_LLM 可以切换真实 LLM 和 Mock 版本。
-
-使用方式：
-    # 开发/测试环境（使用 Mock）
-    export USE_MOCK_LLM=true
-
-    # 生产环境（使用真实 LLM）
-    export USE_MOCK_LLM=false  # 或者不设置
+这个文件封装了所有业务逻辑：
+- LLM 调用
+- 限流检查
+- CarePlan 创建和触发异步任务
+- 统计数据查询
 """
 
 import os
 import time
+from datetime import datetime
+from django.core.cache import cache
+
+
+# ============================================
+# 限流服务
+# ============================================
+def check_rate_limit():
+    """
+    检查 API 调用频率限制（从 views.py 迁移）
+    
+    返回:
+        (allowed, error_msg) - 是否允许，错误信息
+    """
+    print("   🟢 services.py → check_rate_limit() 执行中...")
+    
+    now = datetime.now()
+    
+    # 检查每分钟限制
+    minute_key = f"gemini_calls_{now.strftime('%Y%m%d%H%M')}"
+    minute_count = cache.get(minute_key, 0)
+    print(f"   当前分钟请求数: {minute_count}/15")
+    
+    if minute_count >= 15:
+        return False, "Too many requests per minute. Please wait."
+    
+    # 检查每天限制
+    day_key = f"gemini_calls_{now.strftime('%Y%m%d')}"
+    day_count = cache.get(day_key, 0)
+    print(f"   当前每日请求数: {day_count}/1500")
+    
+    if day_count >= 1500:
+        return False, "Daily quota exceeded. Please try tomorrow."
+    
+    # 更新计数
+    cache.set(minute_key, minute_count + 1, timeout=60)
+    cache.set(day_key, day_count + 1, timeout=86400)
+    
+    return True, None
+
+
+# ============================================
+# CarePlan 业务逻辑
+# ============================================
+def create_careplan(data):
+    """
+    创建 CarePlan 并触发异步任务（从 views.py 迁移）
+    
+    参数:
+        data: 请求数据（request.POST 或 dict）
+    
+    返回:
+        创建的 CarePlan 对象
+    """
+    print("   🟢 services.py → create_careplan() 执行中...")
+    print(f"   接收数据类型: {type(data).__name__}")
+    
+    from .models import CarePlan
+    from .tasks import generate_care_plan_task
+    
+    # 创建数据库记录
+    print("   📝 正在保存到数据库...")
+    care_plan = CarePlan.objects.create(
+        patient_first_name=data['patient_first_name'],
+        patient_last_name=data['patient_last_name'],
+        patient_dob=data['patient_dob'],
+        patient_mrn=data['patient_mrn'],
+        referring_provider=data['referring_provider'],
+        referring_provider_npi=data['referring_provider_npi'],
+        medication_name=data['medication_name'],
+        patient_primary_diagnosis=data['patient_primary_diagnosis'],
+        additional_diagnosis=data.get('additional_diagnosis', ''),
+        medication_history=data.get('medication_history', ''),
+        clinical_notes=data.get('clinical_notes', ''),
+    )
+    print(f"   ✅ 数据库保存成功，CarePlan ID: {care_plan.id}")
+    
+    # 触发异步任务
+    print("   🚀 触发 Celery 异步任务...")
+    generate_care_plan_task.delay(care_plan.id)
+    print("   ✅ 任务已发送到 Redis 队列")
+    
+    return care_plan
+
+
+def get_stats_data():
+    """
+    获取统计数据（从 views.py 迁移）
+    
+    返回:
+        包含统计信息的字典
+    """
+    from .models import CarePlan
+    from careplan.celery import app
+    
+    # 数据库统计
+    total = CarePlan.objects.count()
+    pending = CarePlan.objects.filter(status='pending').count()
+    processing = CarePlan.objects.filter(status='processing').count()
+    completed = CarePlan.objects.filter(status='completed').count()
+    failed = CarePlan.objects.filter(status='failed').count()
+    
+    # Celery 队列统计
+    try:
+        inspect = app.control.inspect()
+        reserved = inspect.reserved() or {}
+        active = inspect.active() or {}
+        queue_length = sum(len(tasks) for tasks in reserved.values())
+        queue_length += sum(len(tasks) for tasks in active.values())
+    except Exception:
+        queue_length = 0
+    
+    # 最近记录
+    recent_plans = CarePlan.objects.all().order_by('-created_at')[:10]
+    
+    return {
+        'total': total,
+        'pending': pending,
+        'processing': processing,
+        'completed': completed,
+        'failed': failed,
+        'queue_length': queue_length,
+        'recent_plans': recent_plans,
+    }
 
 
 # ============================================

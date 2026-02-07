@@ -71,7 +71,7 @@
             // Poll every 3 seconds
             const pollInterval = setInterval(async () => {
                 try {
-                    const response = await fetch(`/api/careplan/${carePlanId}/status/`);
+                    const response = await fetch(`/api/careplans/${carePlanId}/status/`);
                     const data = await response.json();
                     
                     console.log('Poll response:', data);

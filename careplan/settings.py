@@ -9,12 +9,14 @@ ALLOWED_HOSTS = ['*']
 INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.staticfiles',
+    'rest_framework',
     'app',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'app.middleware.ExceptionHandlerMiddleware',
 ]
 
 ROOT_URLCONF = 'careplan.urls'

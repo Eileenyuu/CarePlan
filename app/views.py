@@ -17,6 +17,8 @@ from django.http import HttpResponse, JsonResponse
 from .models import CarePlan
 from .services import check_rate_limit, create_careplan, get_stats_data
 from .serializers import serialize_careplan_status, serialize_careplan_for_csv
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
 
 
 def index(request):
@@ -88,9 +90,10 @@ def stats(request):
     return render(request, 'stats.html', context)
 
 
+@api_view(['GET'])
 def get_careplan_status(request, pk):
     """API: 获取 CarePlan 状态（用于前端轮询）"""
     care_plan = get_object_or_404(CarePlan, pk=pk)
     # 使用 serializer 格式化响应数据
     data = serialize_careplan_status(care_plan)
-    return JsonResponse(data)
+    return Response({"success": True, "data": data})

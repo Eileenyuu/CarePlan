@@ -52,15 +52,21 @@ def index(request):
 
 def result(request, pk):
     """显示 CarePlan 结果页面"""
-    care_plan = get_object_or_404(CarePlan, pk=pk)
+    care_plan = get_object_or_404(
+        CarePlan.objects.select_related('order__patient', 'order__provider'),
+        pk=pk
+    )
     return render(request, 'result.html', {'care_plan': care_plan})
 
 
 def download_txt(request, pk):
     """下载 CarePlan 为 TXT 文件"""
-    care_plan = get_object_or_404(CarePlan, pk=pk)
+    care_plan = get_object_or_404(
+        CarePlan.objects.select_related('order__patient'),
+        pk=pk
+    )
     response = HttpResponse(care_plan.generated_plan, content_type='text/plain')
-    response['Content-Disposition'] = f'attachment; filename="careplan_{care_plan.patient_mrn}.txt"'
+    response['Content-Disposition'] = f'attachment; filename="careplan_{care_plan.order.patient.mrn}.txt"'
     return response
 
 
@@ -77,7 +83,7 @@ def export_csv(request):
     ])
     
     # 使用 serializer 格式化每行数据
-    for care_plan in CarePlan.objects.all():
+    for care_plan in CarePlan.objects.select_related('order__patient', 'order__provider').all():
         writer.writerow(serialize_careplan_for_csv(care_plan))
     
     return response
@@ -93,7 +99,10 @@ def stats(request):
 @api_view(['GET'])
 def get_careplan_status(request, pk):
     """API: 获取 CarePlan 状态（用于前端轮询）"""
-    care_plan = get_object_or_404(CarePlan, pk=pk)
+    care_plan = get_object_or_404(
+        CarePlan.objects.select_related('order__patient', 'order__provider'),
+        pk=pk
+    )
     # 使用 serializer 格式化响应数据
     data = serialize_careplan_status(care_plan)
     return Response({"success": True, "data": data})

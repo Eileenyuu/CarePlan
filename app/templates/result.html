@@ -31,9 +31,9 @@
 </head>
 <body>
     <h1>Generated Care Plan</h1>
-    <p><strong>Patient:</strong> {{ care_plan.patient_first_name }} {{ care_plan.patient_last_name }}</p>
-    <p><strong>MRN:</strong> {{ care_plan.patient_mrn }}</p>
-    <p><strong>Medication:</strong> {{ care_plan.medication_name }}</p>
+    <p><strong>Patient:</strong> {{ care_plan.order.patient.first_name }} {{ care_plan.order.patient.last_name }}</p>
+    <p><strong>MRN:</strong> {{ care_plan.order.patient.mrn }}</p>
+    <p><strong>Medication:</strong> {{ care_plan.order.medication_name }}</p>
     <p><strong>Status:</strong> <span id="status-display">{{ care_plan.status }}</span></p>
     
     <!-- Result container - will be updated by JavaScript -->

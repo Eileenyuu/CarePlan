@@ -136,8 +136,8 @@
             {% for plan in recent_plans %}
             <tr>
                 <td>{{ plan.id }}</td>
-                <td>{{ plan.patient_first_name }} {{ plan.patient_last_name }}</td>
-                <td>{{ plan.patient_mrn }}</td>
+                <td>{{ plan.order.patient.first_name }} {{ plan.order.patient.last_name }}</td>
+                <td>{{ plan.order.patient.mrn }}</td>
                 <td>
                     <span class="status-badge status-{{ plan.status }}">
                         {{ plan.status }}

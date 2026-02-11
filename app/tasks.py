@@ -61,8 +61,13 @@ def generate_care_plan_task(self, careplan_id):
     
     try:
         # -------- 1. 获取 CarePlan --------
-        care_plan = CarePlan.objects.get(id=careplan_id)
-        print(f"   患者: {care_plan.patient_first_name} {care_plan.patient_last_name}")
+        care_plan = CarePlan.objects.select_related(
+            'order__patient', 'order__provider'
+        ).get(id=careplan_id)
+        
+        patient = care_plan.order.patient
+        order = care_plan.order
+        print(f"   患者: {patient.first_name} {patient.last_name}")
         
         # -------- 2. 更新状态为 processing --------
         care_plan.status = 'processing'
@@ -72,14 +77,14 @@ def generate_care_plan_task(self, careplan_id):
         # -------- 3. 构建 Prompt --------
         prompt = f'''Generate a comprehensive Specialty Pharmacy Care Plan for:
 
-Patient: {care_plan.patient_first_name} {care_plan.patient_last_name}
-DOB: {care_plan.patient_dob}
-MRN: {care_plan.patient_mrn}
-Medication: {care_plan.medication_name}
-Primary Diagnosis (ICD-10): {care_plan.patient_primary_diagnosis}
-Additional Diagnoses: {care_plan.additional_diagnosis}
-Medication History: {care_plan.medication_history}
-Clinical Notes: {care_plan.clinical_notes}
+Patient: {patient.first_name} {patient.last_name}
+DOB: {patient.date_of_birth}
+MRN: {patient.mrn}
+Medication: {order.medication_name}
+Primary Diagnosis (ICD-10): {order.primary_diagnosis}
+Additional Diagnoses: {order.additional_diagnosis}
+Medication History: {order.medication_history}
+Clinical Notes: {order.clinical_notes}
 
 Please include (simply and concisely):
 1. Problem List / Drug Therapy Problems (DTPs)

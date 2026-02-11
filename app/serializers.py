@@ -32,6 +32,7 @@ class CarePlanInputSerializer(serializers.Serializer):
     medication_history = serializers.CharField(required=False, allow_blank=True)
     clinical_notes = serializers.CharField(required=False, allow_blank=True)
 
+# ========== 输出序列化：后端 → 前端 ==========
 def serialize_careplan_status(care_plan):
     """
     将 CarePlan 转换为状态 API 的 JSON 格式
@@ -56,17 +57,17 @@ def serialize_careplan_for_csv(care_plan):
     print(f"   输入: CarePlan 对象 (id={care_plan.id})")
     
     result = [
-        care_plan.patient_first_name,
-        care_plan.patient_last_name,
-        care_plan.patient_dob,
-        care_plan.patient_mrn,
-        care_plan.referring_provider,
-        care_plan.referring_provider_npi,
-        care_plan.medication_name,
-        care_plan.patient_primary_diagnosis,
-        care_plan.additional_diagnosis,
-        care_plan.medication_history,
-        care_plan.created_at
+        care_plan.order.patient.first_name,
+        care_plan.order.patient.last_name,
+        care_plan.order.patient.date_of_birth,
+        care_plan.order.patient.mrn,
+        care_plan.order.provider.name,
+        care_plan.order.provider.npi,
+        care_plan.order.medication_name,
+        care_plan.order.primary_diagnosis,
+        care_plan.order.additional_diagnosis,
+        care_plan.order.medication_history,
+        care_plan.order.created_at,
     ]
     
     print(f"   输出: list (长度={len(result)})")

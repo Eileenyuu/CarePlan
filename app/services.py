@@ -58,7 +58,9 @@ def check_rate_limit():
 # ============================================
 def create_careplan(data):
     """
-    创建 CarePlan 并触发异步任务（从 views.py 迁移）
+    创建 CarePlan 并触发异步任务
+    
+    流程：Provider → Patient → Order → CarePlan → Celery 任务
     
     参数:
         data: 请求数据（request.POST 或 dict）
@@ -69,27 +71,48 @@ def create_careplan(data):
     print("   🟢 services.py → create_careplan() 执行中...")
     print(f"   接收数据类型: {type(data).__name__}")
     
-    from .models import CarePlan
+    from .models import Patient, Provider, Order, CarePlan
     from .tasks import generate_care_plan_task
     
-    # 创建数据库记录
-    print("   📝 正在保存到数据库...")
-    care_plan = CarePlan.objects.create(
-        patient_first_name=data['patient_first_name'],
-        patient_last_name=data['patient_last_name'],
-        patient_dob=data['patient_dob'],
-        patient_mrn=data['patient_mrn'],
-        referring_provider=data['referring_provider'],
-        referring_provider_npi=data['referring_provider_npi'],
+    # 1. 查找或创建 Provider
+    print("   📝 查找/创建 Provider...")
+    provider, provider_created = Provider.objects.get_or_create(
+        npi=data['referring_provider_npi'],
+        defaults={'name': data['referring_provider']}
+    )
+    print(f"   {'✨ 新建' if provider_created else '♻️ 复用'} Provider: {provider}")
+    
+    # 2. 查找或创建 Patient
+    print("   📝 查找/创建 Patient...")
+    patient, patient_created = Patient.objects.get_or_create(
+        mrn=data['patient_mrn'],
+        defaults={
+            'first_name': data['patient_first_name'],
+            'last_name': data['patient_last_name'],
+            'date_of_birth': data['patient_dob'],
+        }
+    )
+    print(f"   {'✨ 新建' if patient_created else '♻️ 复用'} Patient: {patient}")
+    
+    # 3. 创建 Order
+    print("   📝 创建 Order...")
+    order = Order.objects.create(
+        patient=patient,
+        provider=provider,
         medication_name=data['medication_name'],
-        patient_primary_diagnosis=data['patient_primary_diagnosis'],
+        primary_diagnosis=data.get('patient_primary_diagnosis', ''),
         additional_diagnosis=data.get('additional_diagnosis', ''),
         medication_history=data.get('medication_history', ''),
         clinical_notes=data.get('clinical_notes', ''),
     )
-    print(f"   ✅ 数据库保存成功，CarePlan ID: {care_plan.id}")
+    print(f"   ✅ Order 创建成功: {order}")
     
-    # 触发异步任务
+    # 4. 创建 CarePlan
+    print("   📝 创建 CarePlan...")
+    care_plan = CarePlan.objects.create(order=order)
+    print(f"   ✅ CarePlan 创建成功: {care_plan}")
+    
+    # 5. 触发异步任务
     print("   🚀 触发 Celery 异步任务...")
     generate_care_plan_task.delay(care_plan.id)
     print("   ✅ 任务已发送到 Redis 队列")
@@ -125,7 +148,9 @@ def get_stats_data():
         queue_length = 0
     
     # 最近记录
-    recent_plans = CarePlan.objects.all().order_by('-created_at')[:10]
+    recent_plans = CarePlan.objects.select_related(
+        'order__patient', 'order__provider'
+    ).all().order_by('-created_at')[:10]
     
     return {
         'total': total,

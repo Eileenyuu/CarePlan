@@ -28,6 +28,9 @@ ENV/
 
 # Test files
 test_file/
+.coverage
+.pytest_cache/
+htmlcov/
 
 # worker
 worker.py
